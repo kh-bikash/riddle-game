@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Mystic Riddle Quest</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gradient-to-br from-purple-800 via-indigo-900 to-black text-white min-h-screen flex items-center justify-center">
+  <div class="max-w-xl mx-auto p-8 bg-gray-900 rounded-xl shadow-xl space-y-6 text-center border border-purple-600">
+    <h1 class="text-4xl font-bold text-purple-300">Mystic Riddle Quest</h1>
+
+    <div id="riddle" class="text-lg text-purple-100 font-medium min-h-[60px]">Loading riddle...</div>
+
+    <input id="answer" type="text" placeholder="Enter your answer..." class="w-full px-4 py-2 rounded-md text-black">
+
+    <div class="flex justify-center space-x-4">
+      <button id="submit" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-6 rounded transition">Submit Answer</button>
+      <button id="showAnswer" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-6 rounded transition">Show Answer</button>
+      <button id="nextRiddle" class="hidden bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded transition">Next Riddle</button>
+    </div>
+
+    <div id="feedback" class="text-xl font-semibold min-h-[30px]"></div>
+    <div class="text-sm text-purple-200">Score: <span id="score">0</span> | Level: <span id="level">1</span></div>
+  </div>
+
+  <script>
+    let currentAnswer = "";
+    let score = 0;
+    let level = 1;
+    let hasViewedAnswer = false;
+
+    const riddleDiv = document.getElementById('riddle');
+    const answerInput = document.getElementById('answer');
+    const feedback = document.getElementById('feedback');
+    const submitBtn = document.getElementById('submit');
+    const showAnswerBtn = document.getElementById('showAnswer');
+    const nextRiddleBtn = document.getElementById('nextRiddle');
+    const scoreDisplay = document.getElementById('score');
+    const levelDisplay = document.getElementById('level');
+
+    async function fetchRiddle() {
+      riddleDiv.textContent = "Loading riddle...";
+      feedback.textContent = "";
+      answerInput.value = "";
+      submitBtn.disabled = false;
+      showAnswerBtn.disabled = false;
+      nextRiddleBtn.classList.add("hidden");
+      hasViewedAnswer = false;
+
+      const response = await fetch("/get_riddle");
+      const data = await response.json();
+
+      riddleDiv.textContent = data.question || "No riddle found";
+      currentAnswer = (data.answer || "").toLowerCase().trim();
+    }
+
+    async function submitAnswer() {
+      const userAnswer = answerInput.value.toLowerCase().trim();
+      if (!userAnswer) return;
+
+      const response = await fetch("/check_answer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ answer: userAnswer, correct_answer: currentAnswer })
+      });
+      const result = await response.json();
+
+      if (result.correct) {
+        feedback.textContent = hasViewedAnswer
+          ? "Correct, but you saw the answer!"
+          : result.message;
+        feedback.className = "text-green-500 text-xl font-semibold";
+        score += hasViewedAnswer ? 1 : 10; // lower score if user viewed answer
+      } else {
+        feedback.textContent = result.message;
+        feedback.className = "text-red-500 text-xl font-semibold";
+        score = Math.max(0, score - 2);
+      }
+
+      level = Math.floor(score / 20) + 1;
+      scoreDisplay.textContent = score;
+      levelDisplay.textContent = level;
+
+      showAnswerBtn.disabled = true;
+      submitBtn.disabled = true;
+      nextRiddleBtn.classList.remove("hidden");
+    }
+
+    function showAnswer() {
+      feedback.textContent = `The answer is: ${currentAnswer}`;
+      feedback.className = "text-yellow-500 text-xl font-semibold";
+
+      score = Math.max(0, score - 5); // penalty for viewing answer
+      level = Math.floor(score / 20) + 1;
+      scoreDisplay.textContent = score;
+      levelDisplay.textContent = level;
+
+      showAnswerBtn.disabled = false;
+      hasViewedAnswer = true;
+    }
+
+    submitBtn.addEventListener("click", submitAnswer);
+    showAnswerBtn.addEventListener("click", showAnswer);
+    nextRiddleBtn.addEventListener("click", fetchRiddle);
+
+    window.onload = fetchRiddle;
+  </script>
+</body>
+</html>
